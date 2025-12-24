@@ -34,7 +34,7 @@ cat >> "$OUTPUT_FILE" << 'EOF'
 EOF
 
 # Sort by file size (descending) and generate table rows
-jq -r 'sort_by(-.file_size | if . == "-" then 0 else tonumber end) | .[] | [
+jq -r 'sort_by(-(if .file_size == "-" then 0 else (.file_size | tonumber) end)) | .[] | [
     .student_id,
     .name,
     .file_size,
