@@ -1,0 +1,57 @@
+---
+name: Update ISE Report Progress
+
+on:
+  schedule:
+    - cron: '19 20 * * *'  # Daily at 5:19 JST (20:19 UTC previous day)
+  workflow_dispatch:       # Manual trigger
+
+jobs:
+  update-progress:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Collect progress data
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+        run: |
+          echo "Collecting progress data..."
+          chmod +x scripts/collect-progress.sh
+          chmod +x scripts/extract-previous-data.py
+          bash scripts/collect-progress.sh
+
+      - name: Generate progress tables
+        run: |
+          echo "Generating progress tables..."
+          chmod +x scripts/generate-tables.sh
+          bash scripts/generate-tables.sh
+
+      - name: Create snapshot
+        run: |
+          DATE=$(TZ='Asia/Tokyo' date +%Y-%m-%d)
+          mkdir -p archive/snapshots
+          cp README.md "archive/snapshots/${DATE}.md"
+          echo "Created snapshot: archive/snapshots/${DATE}.md"
+
+      - name: Create PR and enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+        run: |
+          chmod +x scripts/create-auto-update-pr.sh
+          bash scripts/create-auto-update-pr.sh
