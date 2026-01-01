@@ -104,7 +104,7 @@ cat >> "$OUTPUT_FILE" << EOF
 EOF
 
 # Generate chart URL for file sizes
-CHART_DATA=$(jq -r '[.[] | select(.file_size != "-" and .repo_exists == "true")] | sort_by(-.file_size | tonumber) | .[0:12] |
+CHART_DATA=$(jq -r '[.[] | select(.file_size != "-" and .repo_exists == "true")] | sort_by(-(.file_size | tonumber)) | .[0:12] |
     "labels:" + ([.[].name] | @json) + ",data:" + ([.[].file_size | tonumber / 1000 | . * 10 | floor / 10] | @json)' "$INPUT_FILE" 2>/dev/null || echo "labels:[],data:[]")
 
 if [ -n "$CHART_DATA" ] && [ "$CHART_DATA" != "labels:[],data:[]" ]; then
