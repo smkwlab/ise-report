@@ -109,14 +109,22 @@ EOF
 # Generate line chart from CSV data
 CHART_DATA_DIR="archive/data"
 CHART_IMAGE=""
+CHART_ERROR=""
 
 if [ -d "$CHART_DATA_DIR" ]; then
-    CSV_FILES=$(ls "$CHART_DATA_DIR"/*.csv 2>/dev/null | sort)
+    # Use glob pattern instead of ls to avoid parsing issues
+    shopt -s nullglob
+    CSV_FILES_ARRAY=("$CHART_DATA_DIR"/*.csv)
+    shopt -u nullglob
 
-    if [ -n "$CSV_FILES" ]; then
+    if [ ${#CSV_FILES_ARRAY[@]} -gt 0 ]; then
+        # Sort files by name
+        IFS=$'\n' CSV_FILES_SORTED=($(printf '%s\n' "${CSV_FILES_ARRAY[@]}" | sort))
+        unset IFS
+
         # Get dates for x-axis labels
         LABELS=""
-        for csv_file in $CSV_FILES; do
+        for csv_file in "${CSV_FILES_SORTED[@]}"; do
             filename=$(basename "$csv_file" .csv)
             date_label=$(echo "$filename" | sed 's/^[0-9]\{4\}-//' | sed 's/-/\//')
             if [ -n "$LABELS" ]; then
@@ -126,8 +134,8 @@ if [ -d "$CHART_DATA_DIR" ]; then
             fi
         done
 
-        # Get latest CSV for sorting students by file size
-        LATEST_CSV=$(ls "$CHART_DATA_DIR"/*.csv 2>/dev/null | sort | tail -1)
+        # Get latest CSV for sorting students by file size (reuse sorted array)
+        LATEST_CSV="${CSV_FILES_SORTED[-1]}"
         STUDENT_IDS=$(tail -n +2 "$LATEST_CSV" | awk -F',' '{gsub(/"/, "", $1); gsub(/"/, "", $3); if($3 != "") print $3 " " $1}' | sort -rn | awk '{print $2}')
 
         if [ -n "$STUDENT_IDS" ]; then
@@ -136,7 +144,7 @@ if [ -d "$CHART_DATA_DIR" ]; then
             for student_id in $STUDENT_IDS; do
                 author=$(tail -n +2 "$LATEST_CSV" | awk -F',' -v id="$student_id" '{gsub(/"/, "", $1); gsub(/"/, "", $2); if($1==id) print $2}')
                 STUDENT_SIZE_DATA=""
-                for csv_file in $CSV_FILES; do
+                for csv_file in "${CSV_FILES_SORTED[@]}"; do
                     size=$(tail -n +2 "$csv_file" | awk -F',' -v id="$student_id" '{gsub(/"/, "", $1); gsub(/"/, "", $3); if($1==id && $3 != "") printf "%.1f", $3/1024}')
                     if [ -z "$size" ]; then size="0.0"; fi
                     if [ -n "$STUDENT_SIZE_DATA" ]; then
@@ -158,21 +166,28 @@ if [ -d "$CHART_DATA_DIR" ]; then
             mkdir -p charts
             echo "Downloading file size chart image..."
             CHART_IMAGE="charts/${CURRENT_DATE}-file-size.png"
-            if curl -s -o "$CHART_IMAGE" "$QUICKCHART_URL"; then
+            if curl -fs -o "$CHART_IMAGE" "$QUICKCHART_URL"; then
                 echo "  Saved to $CHART_IMAGE"
             else
-                echo "  Warning: Failed to download chart"
+                echo "  Warning: Failed to download chart from QuickChart API"
                 rm -f "$CHART_IMAGE"
                 CHART_IMAGE=""
+                CHART_ERROR="チャート画像のダウンロードに失敗しました。"
             fi
+        else
+            CHART_ERROR="有効なファイルサイズデータを持つ学生が見つかりませんでした。"
         fi
+    else
+        CHART_ERROR="CSVデータファイルが見つかりませんでした。"
     fi
+else
+    CHART_ERROR="データディレクトリ (${CHART_DATA_DIR}) が見つかりませんでした。"
 fi
 
 if [ -n "$CHART_IMAGE" ]; then
     echo "![学生別ファイルサイズ推移]($CHART_IMAGE)" >> "$OUTPUT_FILE"
 else
-    echo "グラフデータが見つかりませんでした。" >> "$OUTPUT_FILE"
+    echo "$CHART_ERROR" >> "$OUTPUT_FILE"
 fi
 
 cat >> "$OUTPUT_FILE" << 'EOF'
