@@ -164,10 +164,11 @@ if [ -d "$CHART_DATA_DIR" ]; then
             QUICKCHART_URL="https://quickchart.io/chart?c=$ENCODED_CONFIG&w=500&h=400"
 
             # Create charts directory and save chart image
+            # Note: Chart generation depends on the external QuickChart API (quickchart.io)
             mkdir -p charts
             echo "Downloading file size chart image..."
             CHART_IMAGE="charts/${CURRENT_DATE}-file-size.png"
-            if curl -fs -o "$CHART_IMAGE" "$QUICKCHART_URL"; then
+            if curl --max-time 30 -fs -o "$CHART_IMAGE" "$QUICKCHART_URL"; then
                 echo "  Saved to $CHART_IMAGE"
             else
                 echo "  Warning: Failed to download chart from QuickChart API"
