@@ -146,7 +146,8 @@ if [ -d "$CHART_DATA_DIR" ]; then
                 STUDENT_SIZE_DATA=""
                 for csv_file in "${CSV_FILES_SORTED[@]}"; do
                     size=$(tail -n +2 "$csv_file" | awk -F',' -v id="$student_id" '{gsub(/"/, "", $1); gsub(/"/, "", $3); if($1==id && $3 != "") printf "%.1f", $3/1024}')
-                    if [ -z "$size" ]; then size="0.0"; fi
+                    # Use null for missing data to show gaps in chart instead of misleading 0
+                    if [ -z "$size" ]; then size="null"; fi
                     if [ -n "$STUDENT_SIZE_DATA" ]; then
                         STUDENT_SIZE_DATA="$STUDENT_SIZE_DATA,$size"
                     else
