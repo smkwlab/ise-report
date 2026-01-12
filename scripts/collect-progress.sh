@@ -58,20 +58,40 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r STUDENT_ID_RAW NAME REPO_SUFFIX; 
         if [ "$DRAFT_BRANCH" != "-" ]; then
             echo "  ✓ Draft branch: $DRAFT_BRANCH"
 
-            # Check PR status
-            PR_STATE=$(gh pr list --repo "smkwlab/$REPO" --head "$DRAFT_BRANCH" --json state --jq '.[0].state' 2>/dev/null || echo "")
+            # Extract draft number from branch name (e.g., "4th-draft" -> 4)
+            DRAFT_NUM=$(echo "$DRAFT_BRANCH" | grep -o '^[0-9]*')
 
-            if [ "$PR_STATE" = "OPEN" ]; then
-                # Check if approved
-                REVIEW_STATE=$(gh pr view --repo "smkwlab/$REPO" "$DRAFT_BRANCH" --json reviewDecision --jq '.reviewDecision' 2>/dev/null || echo "")
+            # Check PR status on the PREVIOUS draft branch
+            # (When PR is created, next draft branch is auto-generated, so current branch has no PR)
+            if [ "$DRAFT_NUM" -gt 0 ] 2>/dev/null; then
+                PREV_NUM=$((DRAFT_NUM - 1))
+                # Convert number to ordinal suffix
+                case $PREV_NUM in
+                    1) PREV_BRANCH="1st-draft" ;;
+                    2) PREV_BRANCH="2nd-draft" ;;
+                    3) PREV_BRANCH="3rd-draft" ;;
+                    *) PREV_BRANCH="${PREV_NUM}th-draft" ;;
+                esac
 
-                if [ "$REVIEW_STATE" = "APPROVED" ]; then
+                PR_STATE=$(gh pr list --repo "smkwlab/$REPO" --head "$PREV_BRANCH" --json state --jq '.[0].state' 2>/dev/null || echo "")
+
+                if [ "$PR_STATE" = "OPEN" ]; then
+                    # Check if approved
+                    REVIEW_STATE=$(gh pr view --repo "smkwlab/$REPO" "$PREV_BRANCH" --json reviewDecision --jq '.reviewDecision' 2>/dev/null || echo "")
+
+                    if [ "$REVIEW_STATE" = "APPROVED" ]; then
+                        PR_STATUS="✅ 承認済み"
+                    else
+                        PR_STATUS="🔍 Review中"
+                    fi
+                elif [ "$PR_STATE" = "MERGED" ]; then
                     PR_STATUS="✅ 承認済み"
-                else
-                    PR_STATUS="🔍 Review中"
                 fi
+                echo "  ✓ PR status: $PR_STATUS (checked $PREV_BRANCH)"
+            else
+                # 0th-draft: no previous branch to check
+                echo "  ✓ PR status: $PR_STATUS (initial draft)"
             fi
-            echo "  ✓ PR status: $PR_STATUS"
 
             # Get index.html from draft branch
             HTML_CONTENT=$(gh api "repos/smkwlab/$REPO/contents/index.html?ref=$DRAFT_BRANCH" 2>/dev/null || echo "")
