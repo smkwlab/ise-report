@@ -59,19 +59,25 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r STUDENT_ID_RAW NAME REPO_SUFFIX; 
             echo "  ✓ Draft branch: $DRAFT_BRANCH"
 
             # Extract draft number from branch name (e.g., "4th-draft" -> 4)
-            DRAFT_NUM=$(echo "$DRAFT_BRANCH" | grep -o '^[0-9]*')
+            DRAFT_NUM=$(echo "$DRAFT_BRANCH" | grep -o '^[0-9]\+')
 
             # Check PR status on the PREVIOUS draft branch
             # (When PR is created, next draft branch is auto-generated, so current branch has no PR)
             if [ "$DRAFT_NUM" -gt 0 ] 2>/dev/null; then
                 PREV_NUM=$((DRAFT_NUM - 1))
-                # Convert number to ordinal suffix
-                case $PREV_NUM in
-                    1) PREV_BRANCH="1st-draft" ;;
-                    2) PREV_BRANCH="2nd-draft" ;;
-                    3) PREV_BRANCH="3rd-draft" ;;
-                    *) PREV_BRANCH="${PREV_NUM}th-draft" ;;
-                esac
+                # Convert number to ordinal suffix, handling teens (11-13) correctly
+                LAST_TWO=$((PREV_NUM % 100))
+                LAST_DIGIT=$((PREV_NUM % 10))
+                if [ "$LAST_TWO" -ge 11 ] && [ "$LAST_TWO" -le 13 ]; then
+                    PREV_BRANCH="${PREV_NUM}th-draft"
+                else
+                    case $LAST_DIGIT in
+                        1) PREV_BRANCH="${PREV_NUM}st-draft" ;;
+                        2) PREV_BRANCH="${PREV_NUM}nd-draft" ;;
+                        3) PREV_BRANCH="${PREV_NUM}rd-draft" ;;
+                        *) PREV_BRANCH="${PREV_NUM}th-draft" ;;
+                    esac
+                fi
 
                 PR_STATE=$(gh pr list --repo "smkwlab/$REPO" --head "$PREV_BRANCH" --json state --jq '.[0].state' 2>/dev/null || echo "")
 
@@ -87,6 +93,9 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r STUDENT_ID_RAW NAME REPO_SUFFIX; 
                 elif [ "$PR_STATE" = "MERGED" ]; then
                     PR_STATUS="✅ 承認済み"
                 fi
+                # Note: If the previous draft branch has a CLOSED PR or no PR at all,
+                # PR_STATUS intentionally remains the default "📝 作成中" to reflect
+                # that there is no active or merged PR on the previous draft.
                 echo "  ✓ PR status: $PR_STATUS (checked $PREV_BRANCH)"
             else
                 # 0th-draft: no previous branch to check
