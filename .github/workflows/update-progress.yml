@@ -2,8 +2,8 @@
 name: Update ISE Report Progress
 
 on:
-  schedule:
-    - cron: '19 20 * * *'  # Daily at 5:19 JST (20:19 UTC previous day)
+  # schedule:
+  #   - cron: '19 20 * * *'  # Daily at 5:19 JST (20:19 UTC previous day)
   workflow_dispatch:       # Manual trigger
 
 jobs:
