@@ -72,7 +72,11 @@ jq -r 'sort_by(-(if .file_size == "-" then 0 else (.file_size | tonumber) end)) 
         SIZE_LINK="-"
     fi
 
-    echo "| $STUDENT_LINK | $NAME | $SIZE_LINK | $SIZE_DIFF | $LAST_UPDATE | $DRAFT_BRANCH | $PR_STATUS |" >> "$OUTPUT_FILE"
+    # Public page URL (semi3b for ise-report2)
+    PUBLIC_URL="http://www-st.is.kyusan-u.ac.jp/~${STUDENT_ID}/semi3b/"
+    NAME_LINK="[${NAME}](${PUBLIC_URL})"
+
+    echo "| $STUDENT_LINK | $NAME_LINK | $SIZE_LINK | $SIZE_DIFF | $LAST_UPDATE | $DRAFT_BRANCH | $PR_STATUS |" >> "$OUTPUT_FILE"
 done
 
 # Add notes and schedule sections
