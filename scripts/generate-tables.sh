@@ -4,13 +4,51 @@ set -e
 # Generate progress tables for ISE reports
 # Input: progress-data.json, archive/data/*.csv
 # Output: README.md
+#
+# Usage:
+#   ./generate-tables.sh [1|2]
+#   - 1: ise-report1 (情報科学演習I, semi3a)
+#   - 2: ise-report2 (情報科学演習II, semi3b)
+#   - No argument: auto-detect based on current month
+#     - April-September (4-9): ise-report1
+#     - October-March (10-3): ise-report2
 
 export TZ='Asia/Tokyo'
+
+# Determine report number from argument or auto-detect
+if [ -n "$1" ]; then
+    REPORT_NUM="$1"
+else
+    # Auto-detect based on current month
+    CURRENT_MONTH=$(date '+%-m')
+    if [ "$CURRENT_MONTH" -ge 4 ] && [ "$CURRENT_MONTH" -le 9 ]; then
+        REPORT_NUM=1
+    else
+        REPORT_NUM=2
+    fi
+fi
+
+# Validate report number
+if [ "$REPORT_NUM" != "1" ] && [ "$REPORT_NUM" != "2" ]; then
+    echo "Error: Invalid report number '$REPORT_NUM'. Must be 1 or 2." >&2
+    exit 1
+fi
+
+# Set variables based on report number
+if [ "$REPORT_NUM" = "1" ]; then
+    COURSE_NAME="情報科学演習I"
+    COURSE_PATH="semi3a"
+else
+    COURSE_NAME="情報科学演習II"
+    COURSE_PATH="semi3b"
+fi
+REPO_SUFFIX="ise-report${REPORT_NUM}"
 
 INPUT_FILE="progress-data.json"
 OUTPUT_FILE="README.md"
 
 echo "=== Generating Progress Tables ==="
+echo "Report: ${REPO_SUFFIX} (${COURSE_NAME}, ${COURSE_PATH})"
 echo ""
 
 # Get current date in JST
@@ -18,10 +56,10 @@ CURRENT_DATETIME=$(date '+%Y-%m-%d %H:%M %Z')
 CURRENT_DATE=$(date '+%Y-%m-%d')
 
 # Start generating README
-cat > "$OUTPUT_FILE" << 'EOF'
+cat > "$OUTPUT_FILE" << EOF
 # ISE Report Progress
 
-2024年度 情報科学演習II レポート 進捗状況ダッシュボード
+2024年度 ${COURSE_NAME} レポート 進捗状況ダッシュボード
 
 EOF
 
@@ -54,7 +92,7 @@ jq -r 'sort_by(-(if .file_size == "-" then 0 else (.file_size | tonumber) end)) 
     fi
 
     # Format student ID link
-    REPO="${STUDENT_ID}-ise-report2"
+    REPO="${STUDENT_ID}-${REPO_SUFFIX}"
     if [ "$DRAFT_BRANCH" != "-" ]; then
         STUDENT_LINK="[${STUDENT_ID}](https://github.com/smkwlab/${REPO}/tree/${DRAFT_BRANCH})"
     else
@@ -72,8 +110,8 @@ jq -r 'sort_by(-(if .file_size == "-" then 0 else (.file_size | tonumber) end)) 
         SIZE_LINK="-"
     fi
 
-    # Public page URL (semi3b for ise-report2)
-    PUBLIC_URL="http://www-st.is.kyusan-u.ac.jp/~${STUDENT_ID}/semi3b/"
+    # Public page URL (${COURSE_PATH} for ${REPO_SUFFIX})
+    PUBLIC_URL="http://www-st.is.kyusan-u.ac.jp/~${STUDENT_ID}/${COURSE_PATH}/"
     NAME_LINK="[${NAME}](${PUBLIC_URL})"
 
     echo "| $STUDENT_LINK | $NAME_LINK | $SIZE_LINK | $SIZE_DIFF | $LAST_UPDATE | $DRAFT_BRANCH | $PR_STATUS |" >> "$OUTPUT_FILE"
